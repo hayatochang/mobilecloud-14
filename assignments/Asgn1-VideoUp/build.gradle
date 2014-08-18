@@ -64,6 +64,16 @@ dependencies {
     testCompile("junit:junit")
 }
 
+task(startServlet, dependsOn: 'classes', type: JavaExec) {
+    main = 'org.magnum.dataup.Application'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+
 task wrapper(type: Wrapper) {
     gradleVersion = '1.11'
+}
+
+task listJars << {
+    configurations.compile.each { File file -> println file.path }
 }
