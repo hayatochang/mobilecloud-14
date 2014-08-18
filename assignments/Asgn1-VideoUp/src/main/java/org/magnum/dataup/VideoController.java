@@ -37,6 +37,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.io.IOException;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 public class VideoController {
@@ -104,22 +105,33 @@ public class VideoController {
      **/
     @RequestMapping( value="/video/{id}/data", method=RequestMethod.POST )
     public @ResponseBody VideoStatus addVideoData(
-        @PathVariable( "id" )  long id,
-        MultipartFile videoData )
+        @PathVariable("id") long id,
+        @RequestParam("data") MultipartFile videoData )
     throws ResourceNotFoundException {
+
+        if( videoData == null ) {
+            System.out.println("Video data is null");
+            return null;
+        }
+
+        if( videoData != null ) {
+            System.out.println("Video data is not null");
+        }
+
 
         for ( Video v : videos ) {
             if( v.getId() == id ) {
-                try { 
+                try {
                     InputStream in = videoData.getInputStream();
-                }
-                catch ( IOException e ) {
-                
+
+                    return new VideoStatus( VideoStatus.VideoState.READY );
+                } catch ( IOException e ) {
+                    System.out.println( e.toString() );
                 }
             }
         }
 
-        throw new ResourceNotFoundException("Id: " + id + " does not exist");
+        throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
 
 
         // v.setId( id );
@@ -143,7 +155,7 @@ public class VideoController {
             }
         }
 
-        throw new ResourceNotFoundException("Id: " + id + " does not exist");
+        throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
 
         // throw new Exception( "Video with id" + id + " does not exist" );
     }
