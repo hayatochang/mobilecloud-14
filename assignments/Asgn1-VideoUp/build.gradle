@@ -33,7 +33,7 @@ repositories {
     mavenCentral()
     maven { url "http://repo.spring.io/libs-snapshot" }
     maven { url "http://maven.springframework.org/milestone" }
-    
+
     flatDir {
         dirs 'lib'
     }
@@ -47,8 +47,8 @@ dependencies {
     compile("org.springframework.boot:spring-boot-starter-data-jpa:${springBootVersion}")
     compile("org.springframework.boot:spring-boot-starter-test:${springBootVersion}")
     compile("org.springframework.data:spring-data-rest-webmvc")
-    
-   
+
+
     compile("com.h2database:h2")
     compile("com.google.guava:guava:17.0")
     compile("org.apache.commons:commons-lang3:3.3.2")
@@ -60,7 +60,7 @@ dependencies {
 
     compile(":video.up.test:1.0.0")
     compile(":mobilecloud.handin:1.0.0")
-    
+
     testCompile("junit:junit")
 }
 
