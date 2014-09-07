@@ -38,11 +38,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.io.IOException;
 import org.springframework.web.bind.annotation.RequestParam;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.servlet.http.HttpServletResponse;
 
 @Controller
 public class VideoController {
 
-    private List<Video> videos = new ArrayList<Video>();
+    private Map<Long, Video> videos = new ConcurrentHashMap<Long, Video>();
 
     /*
     * GET /video
@@ -54,7 +57,7 @@ public class VideoController {
     **/
     @RequestMapping( value="/video", method=RequestMethod.GET )
     public @ResponseBody Collection<Video> getVideo( ) {
-        return videos;
+        return videos.values();
     }
 
     /*
@@ -84,13 +87,13 @@ public class VideoController {
     **/
     @RequestMapping( value="/video", method=RequestMethod.POST )
     public @ResponseBody Video addVideo( @RequestBody Video v ) {
-        long id = UUID.randomUUID().getLeastSignificantBits();
+        long id = Math.abs(UUID.randomUUID().getLeastSignificantBits());
 
         v.setId( id );
         String baseUrl = getUrlBaseForLocalServer() + "/" + Integer.toString( v.hashCode() );
         v.setDataUrl( baseUrl );
 
-        videos.add( v );
+        videos.put( id, v );
         return v;
     }
 
@@ -105,38 +108,31 @@ public class VideoController {
      **/
     @RequestMapping( value="/video/{id}/data", method=RequestMethod.POST )
     public @ResponseBody VideoStatus addVideoData(
-        @PathVariable("id") long id,
-        @RequestParam("data") MultipartFile videoData )
+        @PathVariable( "id" ) long id,
+        @RequestParam( "data" ) MultipartFile videoData )
     throws ResourceNotFoundException {
 
         if( videoData == null ) {
-            System.out.println("Video data is null");
-            return null;
+            System.out.println( "Video data is null" );
+            throw new ResourceNotFoundException( "Video data is null" );
         }
 
-        if( videoData != null ) {
-            System.out.println("Video data is not null");
+        Video v = videos.get( id );
+
+        if( v == null ) {
+            throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
         }
 
+        try {
+            InputStream in = videoData.getInputStream();
+            VideoFileManager vfm = VideoFileManager.get();
+            vfm.saveVideoData( v, in );
 
-        for ( Video v : videos ) {
-            if( v.getId() == id ) {
-                try {
-                    InputStream in = videoData.getInputStream();
-
-                    return new VideoStatus( VideoStatus.VideoState.READY );
-                } catch ( IOException e ) {
-                    System.out.println( e.toString() );
-                }
-            }
+            return new VideoStatus( VideoStatus.VideoState.READY );
+        } catch ( IOException e ) {
+            System.out.println( e.toString() );
+            throw new ResourceNotFoundException( "Error saving to disk" );
         }
-
-        throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
-
-
-        // v.setId( id );
-        // videos.add( v );
-        // return new VideoStatus( VideoStatus.VideoState.PROCESSING );
     }
 
     /*
@@ -147,17 +143,24 @@ public class VideoController {
      *
      **/
     @RequestMapping( value="/video/{id}/data", method=RequestMethod.GET )
-    public @ResponseBody VideoStatus getVideoData( @PathVariable( "id" )  long id ) {
+    public @ResponseBody void getVideoData( @PathVariable( "id" ) long id,
+                                            HttpServletResponse response ) {
 
-        for ( Video v : videos ) {
-            if( v.getId() == id ) {
-                return null;
-            }
+        Video v = videos.get( id );
+
+        if ( v == null ) {
+            throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
         }
 
-        throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
+        try {
+            VideoFileManager vfm = VideoFileManager.get();
+            vfm.copyVideoData( v, response.getOutputStream() );
+        } catch ( IOException e ) {
+            System.out.println( e.toString() );
+            throw new ResourceNotFoundException( "Error getting from disk" );
+        }
 
-        // throw new Exception( "Video with id" + id + " does not exist" );
+        return;
     }
 
     private String getUrlBaseForLocalServer() {
