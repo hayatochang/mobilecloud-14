@@ -31,6 +31,10 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 // Any class in this package that is annotated with @Controller is going to be
 // automatically discovered and connected to the DispatcherServlet.
 @ComponentScan
+// We use the @Import annotation to include our OAuth2SecurityConfiguration
+// as part of this configuration so that we can have security and oauth
+// setup by Spring
+@Import(OAuth2SecurityConfiguration.class)
 public class Application extends RepositoryRestMvcConfiguration {
 
 	// The app now requires that you pass the location of the keystore and
@@ -44,7 +48,7 @@ public class Application extends RepositoryRestMvcConfiguration {
 	//
 	//       -Dkeystore.file=src/main/resources/private/keystore -Dkeystore.pass=changeit
 	//
-	//    5. Note, this keystore is highly insecure! If you want more securtiy, you 
+	//    5. Note, this keystore is highly insecure! If you want more securtiy, you
 	//       should obtain a real SSL certificate:
 	//
 	//       http://tomcat.apache.org/tomcat-7.0-doc/ssl-howto.html
@@ -54,11 +58,11 @@ public class Application extends RepositoryRestMvcConfiguration {
 		SpringApplication.run(Application.class, args);
 	}
 
-	
+
     // This version uses the Tomcat web container and configures it to
 	// support HTTPS. The code below performs the configuration of Tomcat
 	// for HTTPS. Each web container has a different API for configuring
-	// HTTPS. 
+	// HTTPS.
 	//
 	// The app now requires that you pass the location of the keystore and
 	// the password for your private key that you would like to setup HTTPS
@@ -71,7 +75,7 @@ public class Application extends RepositoryRestMvcConfiguration {
 	//
 	//       -Dkeystore.file=src/main/resources/private/keystore -Dkeystore.pass=changeit
 	//
-	//    5. Note, this keystore is highly insecure! If you want more securtiy, you 
+	//    5. Note, this keystore is highly insecure! If you want more securtiy, you
 	//       should obtain a real SSL certificate:
 	//
 	//       http://tomcat.apache.org/tomcat-7.0-doc/ssl-howto.html
@@ -84,7 +88,7 @@ public class Application extends RepositoryRestMvcConfiguration {
 		// If you were going to reuse this class in another
 		// application, this is one of the key sections that you
 		// would want to change
-    	
+
         final String absoluteKeystoreFile = new File(keystoreFile).getAbsolutePath();
 
         return new EmbeddedServletContainerCustomizer () {
@@ -108,9 +112,7 @@ public class Application extends RepositoryRestMvcConfiguration {
 			                        proto.setKeyAlias("tomcat");
 								}
 		                    });
-		    
 			}
         };
     }
-	
 }

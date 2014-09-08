@@ -70,3 +70,7 @@ dependencies {
 task wrapper(type: Wrapper) {
     gradleVersion = '1.11'
 }
+
+task listJars << {
+    configurations.compile.each { File file -> println file.path }
+}
