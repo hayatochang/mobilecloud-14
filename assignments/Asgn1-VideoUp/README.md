@@ -1,5 +1,12 @@
 # Assignment 1 Covering Weeks 1-3
 
+## Gradle tasks
+
+Execute the gradle tasks by this order:
+
+* bootRun -> Starts the server
+* check -> Runs the tests
+
 ## Running the Application
 
 __You do not use "jettyRun" to launch this application. Please read these instructions__

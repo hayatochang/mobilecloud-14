@@ -1,5 +1,13 @@
 # Assignment 2 Covering Weeks 3-6
 
+## Gradle tasks
+
+Execute the gradle tasks by this order:
+
+* bootRun -> Starts the server
+* check -> Runs the tests
+
+
 ## Overview
 
 This assignment will build on the ideas in the original video service to add OAuth 2.0
@@ -270,3 +278,4 @@ official grade.
 ```        
 `
 
+kk
