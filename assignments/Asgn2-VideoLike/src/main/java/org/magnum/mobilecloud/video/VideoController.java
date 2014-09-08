@@ -9,170 +9,156 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  */
+
 package org.magnum.mobilecloud.video;
 
-import org.springframework.stereotype.Controller;
-import java.util.List;
+import java.security.Principal;
 import java.util.ArrayList;
-import org.magnum.dataup.model.Video;
+import java.util.Collection;
+
+import org.magnum.mobilecloud.video.client.VideoSvcApi;
+import org.magnum.mobilecloud.video.exception.VideoAlreadyLikedException;
+import org.magnum.mobilecloud.video.exception.VideoNotFoundException;
+import org.magnum.mobilecloud.video.exception.VideoNotLikedException;
+import org.magnum.mobilecloud.video.repository.Video;
+import org.magnum.mobilecloud.video.repository.VideoLikes;
+import org.magnum.mobilecloud.video.repository.VideoLikesRepository;
+import org.magnum.mobilecloud.video.repository.VideoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseBody;
-import java.util.Collection;
-import java.util.UUID;
-import org.magnum.dataup.model.VideoStatus;
-import org.springframework.web.bind.annotation.PathVariable;
-import javax.servlet.http.HttpServletRequest;
-import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.InputStream;
-import java.io.IOException;
 import org.springframework.web.bind.annotation.RequestParam;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import javax.servlet.http.HttpServletResponse;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.google.common.collect.Lists;
 
 @Controller
 public class VideoController {
 
-    private Map<Long, Video> videos = new ConcurrentHashMap<Long, Video>();
+    // public static final String TITLE_PARAMETER = "title";
+    // public static final String DURATION_PARAMETER = "duration";
+    // public static final String TOKEN_PATH = "/oauth/token";
 
-    /*
-    * GET /video
-    *   - Returns the list of videos that have been added to the
-    *     server as JSON. The list of videos does not have to be
-    *     persisted across restarts of the server. The list of
-    *     Video objects should be able to be unmarshalled by the
-    *     client into a Collection<Video>.
-    **/
-    @RequestMapping( value="/video", method=RequestMethod.GET )
-    public @ResponseBody Collection<Video> getVideo( ) {
-        return videos.values();
+    // The path where we expect the VideoSvc to live
+    public static final String VIDEO_SVC_PATH = "/video";
+
+    @Autowired
+    private VideoRepository videoRepository;
+    @Autowired
+    private VideoLikesRepository videoLikesRepository;
+
+    // The path to get video by id
+    public static final String VIDEO_BY_ID_PATH=VIDEO_SVC_PATH + "/{id}";
+    @RequestMapping(value=VIDEO_BY_ID_PATH, method=RequestMethod.GET)
+    public @ResponseBody Video getVideoById(@PathVariable("id") long id) {
+        Video video =videoRepository.findOne(id);
+        if(video==null) {
+            throw new VideoNotFoundException(id);
+        }
+        video.setLikes(videoLikesRepository.findByVideoId(video.getId()).size());
+        return video;
     }
 
-    /*
-    * POST /video
-    *   - The video data is provided as an application/json request
-    *     body. The JSON should generate a valid instance of the
-    *     Video class when deserialized by Spring's default
-    *     Jackson library.
-    *   - Returns the JSON representation of the Video object that
-    *     was stored along with any updates to that object.
-    *     --The server should generate a unique identifier for the Video
-    *     object and assign it to the Video by calling its setId(...)
-    *     method. The returned Video JSON should include this server-generated
-    *     identifier so that the client can refer to it when uploading the
-    *     binary mpeg video content for the Video.
-    *    -- The server should also generate a "data url" for the
-    *     Video. The "data url" is the url of the binary data for a
-    *     Video (e.g., the raw mpeg data). The URL should be the *full* URL
-    *     for the video and not just the path. You can use a method like the
-    *     following to figure out the name of your server:
-    *
-    *     	private String getUrlBaseForLocalServer() {
-    *		   HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-    *		   String base = "http://"+request.getServerName()+((request.getServerPort() != 80) ? ":"+request.getServerPort() : "");
-    *		   return base;
-    *		}
-    **/
-    @RequestMapping( value="/video", method=RequestMethod.POST )
-    public @ResponseBody Video addVideo( @RequestBody Video v ) {
-        long id = Math.abs(UUID.randomUUID().getLeastSignificantBits());
+    @RequestMapping(value=VIDEO_SVC_PATH, method=RequestMethod.GET)
+    public @ResponseBody Collection<Video> getVideoList() {
+        return Lists.newArrayList(videoRepository.findAll());
+    }
 
-        v.setId( id );
-        String baseUrl = getUrlBaseForLocalServer() + "/" + Integer.toString( v.hashCode() );
-        v.setDataUrl( baseUrl );
-
-        videos.put( id, v );
+    @RequestMapping(value=VideoSvcApi.VIDEO_SVC_PATH, method=RequestMethod.POST)
+    public @ResponseBody Video addVideo(@RequestBody Video v) {
+        videoRepository.save(v);
         return v;
     }
 
-    /*
-     * POST /video/{id}/data
-     *   - The binary mpeg data for the video should be provided in a multipart
-     *     request as a part with the key "data". The id in the path should be
-     *     replaced with the unique identifier generated by the server for the
-     *     Video. A client MUST *create* a Video first by sending a POST to /video
-     *     and getting the identifier for the newly created Video object before
-     *     sending a POST to /video/{id}/data.
-     **/
-    @RequestMapping( value="/video/{id}/data", method=RequestMethod.POST )
-    public @ResponseBody VideoStatus addVideoData(
-        @PathVariable( "id" ) long id,
-        @RequestParam( "data" ) MultipartFile videoData )
-    throws ResourceNotFoundException {
-
-        if( videoData == null ) {
-            System.out.println( "Video data is null" );
-            throw new ResourceNotFoundException( "Video data is null" );
+    //Like a particular video
+    public static final String LIKE_VIDEO_PATH = VIDEO_SVC_PATH + "/{id}/like";
+    @RequestMapping(value=LIKE_VIDEO_PATH, method=RequestMethod.POST)
+    public @ResponseBody void likeVideo(@PathVariable("id") long id, Principal principal) {
+        Video video = videoRepository.findOne(id);
+        if(video==null) {
+            throw new VideoNotFoundException(id);
         }
-
-        Video v = videos.get( id );
-
-        if( v == null ) {
-            throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
+        Collection<VideoLikes> videoLikes=videoLikesRepository.findByVideoId(video.getId());
+        for(VideoLikes likes: videoLikes) {
+            if(principal.getName().equalsIgnoreCase(likes.getLikeUserName())) {
+                throw new VideoAlreadyLikedException(id);
+            }
         }
-
-        try {
-            InputStream in = videoData.getInputStream();
-            VideoFileManager vfm = VideoFileManager.get();
-            vfm.saveVideoData( v, in );
-
-            return new VideoStatus( VideoStatus.VideoState.READY );
-        } catch ( IOException e ) {
-            System.out.println( e.toString() );
-            throw new ResourceNotFoundException( "Error saving to disk" );
-        }
+        VideoLikes likes = new VideoLikes();
+        likes.setLikeUserName(principal.getName());
+        likes.setVideoId(video.getId());
+        videoLikesRepository.save(likes);
     }
 
-    /*
-     * GET /video/{id}/data
-     *   - Returns the binary mpeg data (if any) for the video with the given
-     *     identifier. If no mpeg data has been uploaded for the specified video,
-     *     then the server should return a 404 status code.
-     *
-     **/
-    @RequestMapping( value="/video/{id}/data", method=RequestMethod.GET )
-    public @ResponseBody void getVideoData( @PathVariable( "id" ) long id,
-                                            HttpServletResponse response ) {
-
-        Video v = videos.get( id );
-
-        if ( v == null ) {
-            throw new ResourceNotFoundException( "Id: " + id + " does not exist" );
+    //UnLike a particular video
+    public static final String UN_LIKE_VIDEO_PATH = VIDEO_SVC_PATH + "/{id}/unlike";
+    @RequestMapping(value=UN_LIKE_VIDEO_PATH, method=RequestMethod.POST)
+    public @ResponseBody void unLikeVideo(@PathVariable("id") long id, Principal principal) {
+        boolean videoLikedByTheUserBefore=false;
+        VideoLikes videoLikeToBeUnliked=null;
+        Video video = videoRepository.findOne(id);
+        if(video==null) {
+            throw new VideoNotFoundException(id);
         }
-
-        try {
-            VideoFileManager vfm = VideoFileManager.get();
-            vfm.copyVideoData( v, response.getOutputStream() );
-        } catch ( IOException e ) {
-            System.out.println( e.toString() );
-            throw new ResourceNotFoundException( "Error getting from disk" );
+        Collection<VideoLikes> videoLikes=videoLikesRepository.findByVideoId(video.getId());
+        for(VideoLikes likes: videoLikes) {
+            if(principal.getName().equalsIgnoreCase(likes.getLikeUserName())) {
+                videoLikeToBeUnliked=likes;
+                videoLikedByTheUserBefore=true;
+                break;
+            }
         }
-
-        return;
+        if(!videoLikedByTheUserBefore) {
+            throw new VideoNotLikedException(id);
+        }
+        videoLikesRepository.delete(videoLikeToBeUnliked);
     }
 
-    private String getUrlBaseForLocalServer() {
-        HttpServletRequest request = ( ( ServletRequestAttributes ) RequestContextHolder.getRequestAttributes() ).getRequest();
-        String base = "http://"+request.getServerName()+( ( request.getServerPort() != 80 ) ? ":"+request.getServerPort() : "" );
-        return base;
-    }
-
-    @ResponseStatus( value = HttpStatus.NOT_FOUND )
-    public class ResourceNotFoundException extends RuntimeException {
-        public ResourceNotFoundException( String s ) {
-            super( s );
+    //Liked by returns all users who liked this video
+    public static final String LIKED_BY_VIDEO_PATH = VIDEO_SVC_PATH + "/{id}/likedby";
+    @RequestMapping(value=LIKED_BY_VIDEO_PATH, method=RequestMethod.GET)
+    public @ResponseBody Collection<String> getVideoLikedByList(@PathVariable("id") long id, Principal principal) {
+        Video video = videoRepository.findOne(id);
+        if(video==null) {
+            throw new VideoNotFoundException(id);
         }
+        Collection<String> likedByUsers= new ArrayList<String>();
+        for(VideoLikes likes : videoLikesRepository.findByVideoId(video.getId())) {
+            likedByUsers.add(likes.getLikeUserName());
+        }
+        return likedByUsers;
     }
 
+    // The path to search videos by title
+    public static final String VIDEO_TITLE_SEARCH_PATH = VIDEO_SVC_PATH + "/search/findByName";
+    @RequestMapping(value=VIDEO_TITLE_SEARCH_PATH, method=RequestMethod.GET)
+    public @ResponseBody Collection<Video> findVideoByName(@RequestParam("title") String videoName) {
+        Collection<Video> videos = videoRepository.findByName(videoName);
+        if(videos==null || videos.isEmpty()) {
+            return Lists.newArrayList();
+        }
+        return videos;
+    }
+
+
+    // The path to search videos by title
+    public static final String VIDEO_DURATION_SEARCH_PATH = VIDEO_SVC_PATH + "/search/findByDurationLessThan";
+    @RequestMapping(value=VIDEO_DURATION_SEARCH_PATH, method=RequestMethod.GET)
+    public @ResponseBody Collection<Video> findVideoByDurationLessThan(@Param("duration") long duration) {
+        Collection<Video> videos = videoRepository.findByDurationLessThan(duration);
+        if(videos==null || videos.isEmpty()) {
+            return Lists.newArrayList();
+        }
+        return videos;
+    }
 }

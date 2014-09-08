@@ -16,6 +16,15 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'spring-boot'
 apply plugin: 'war'
+apply plugin: 'application'
+
+# This is commented, because it conflicts with bootRun task. 
+# Trick gradleand run one at a time
+#task(autoGrade, dependsOn: 'compileTestJava', type: JavaExec) {
+#    main = "org.magnum.mobilecloud.video.AutoGrading"
+#    classpath = sourceSets.test.runtimeClasspath
+#}
+
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7

@@ -16,6 +16,8 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.rest.webmvc.config.RepositoryRestMvcConfiguration;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.magnum.mobilecloud.video.auth.OAuth2SecurityConfiguration;
+import org.springframework.context.annotation.Import;
 
 //Tell Spring to automatically inject any dependencies that are marked in
 //our classes with @Autowired
@@ -42,7 +44,7 @@ public class Application extends RepositoryRestMvcConfiguration {
 	// with. In Eclipse, you can set these options by going to:
 	//    1. Run->Run Configurations
 	//    2. Under Java Applications, select your run configuration for this app
-	//    3. Open the Arguments tab
+	//    3. Open the Arguments taborg.magnum.mobilecloud.video.auth
 	//    4. In VM Arguments, provide the following information to use the
 	//       default keystore provided with the sample code:
 	//
